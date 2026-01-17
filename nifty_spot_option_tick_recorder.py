@@ -276,9 +276,9 @@ if __name__ == "__main__":
     ticker.on_connect = on_connect
 
     ticker.connect(threaded=True)
-
+    print("[DEBUG] Entering main loop", flush=True)
     try:
-        while datetime.now(IST).time() <= END_TIME:
+        while True:
             time.sleep(1)
     finally:
         ticker.close()
