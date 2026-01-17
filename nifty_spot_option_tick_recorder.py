@@ -222,10 +222,6 @@ def update_option_band(ws, underlying, spot_ltp):
 
 # ---------------- TICKS ----------------
 def on_ticks(ws, ticks):
-    now = pd.Timestamp.now()
-    if not is_trading_hours(now):
-        return
-
     for t in ticks:
         tok = int(t.get("instrument_token", 0))
         ltp = t.get("last_price")
