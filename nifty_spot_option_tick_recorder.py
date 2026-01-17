@@ -185,10 +185,14 @@ def resolve_option(index, underlying, strike, opt_type, expiry):
 # ---------------- SUBSCRIPTIONS ----------------
 def subscribe_tokens(ws, tokens):
     t = [x for x in tokens if x not in subscribed_tokens]
-    if t:
-        ws.subscribe(t)
-        ws.set_mode(ws.MODE_FULL, t)
-        subscribed_tokens.update(t)
+    if not t:
+        return
+
+    print(f"[DEBUG] WS subscribe called for {len(t)} tokens")
+
+    ws.subscribe(t)
+    ws.set_mode(ws.MODE_FULL, t)
+    subscribed_tokens.update(t)
 
 def unsubscribe_tokens(ws, tokens):
     t = [x for x in tokens if x in subscribed_tokens]
@@ -200,8 +204,12 @@ def unsubscribe_tokens(ws, tokens):
 def update_option_band(ws, underlying, spot_ltp):
     global current_atm_strike, current_option_tokens
     atm = round_to_strike(spot_ltp)
+    if atm is None:
+        print("[DEBUG] ATM is None, skipping")
+        return
     if atm == current_atm_strike:
         return
+    print(f"[DEBUG] Spot LTP={spot_ltp}, ATM={atm}")
 
     strikes = {atm, atm-50, atm+50, atm-100, atm+100}
     new_tokens = set()
@@ -213,7 +221,17 @@ def update_option_band(ws, underlying, spot_ltp):
                 if tok:
                     new_tokens.add(tok)
                     token_to_sym[tok] = tsym
+    print(f"[DEBUG] Resolved option tokens: {len(new_tokens)}")
 
+    to_sub = new_tokens - current_option_tokens
+    to_unsub = current_option_tokens - new_tokens
+
+    if to_sub:
+        print(f"[DEBUG] Subscribing option tokens: {list(to_sub)[:5]} ...")
+
+    if to_unsub:
+        print(f"[DEBUG] Unsubscribing option tokens: {list(to_unsub)[:5]} ...")
+        
     unsubscribe_tokens(ws, current_option_tokens - new_tokens)
     subscribe_tokens(ws, new_tokens - current_option_tokens)
 
@@ -243,7 +261,8 @@ def on_connect(ws, resp):
 if __name__ == "__main__":
     print("[INFO] Building NFO index...")
     _nfo_index_by_key, _, option_meta_by_token = build_nfo_index_with_expiry()
-
+    print(f"[DEBUG] NFO index size: {len(_nfo_index_by_key)}")
+    
     insts = kite.instruments("NSE")
     spot_tokens = [int(i["instrument_token"]) for i in insts if i["tradingsymbol"] == "NIFTY 50"]
     token_to_sym = {spot_tokens[0]: "NIFTY 50"}
