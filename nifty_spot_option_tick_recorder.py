@@ -145,7 +145,18 @@ def build_nfo_index_with_expiry():
 
         opt_type = (inst.get("option_type") or "").upper()
         expiry = inst.get("expiry")
-        expiry = expiry.date() if expiry else _parse_expiry_from_tradingsymbol(ts)
+        if expiry:
+            if hasattr(expiry, "date"):
+                expiry = expiry.date()
+            elif isinstance(expiry, date):
+                expiry = expiry
+            else:
+                try:
+                    expiry = datetime.strptime(str(expiry), "%Y-%m-%d").date()
+            except Exception:
+                expiry = _parse_expiry_from_tradingsymbol(ts)
+        else:
+            expiry = _parse_expiry_from_tradingsymbol(ts)
 
         underlying = (inst.get("name") or "").upper()
 
