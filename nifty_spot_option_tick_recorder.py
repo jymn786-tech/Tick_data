@@ -240,6 +240,7 @@ def update_option_band(ws, underlying, spot_ltp):
 
 # ---------------- TICKS ----------------
 def on_ticks(ws, ticks):
+    print(f"[DEBUG] on_ticks called with {len(ticks)} ticks")
     for t in ticks:
         tok = int(t.get("instrument_token", 0))
         ltp = t.get("last_price")
@@ -250,6 +251,7 @@ def on_ticks(ws, ticks):
         record_tick(ts, tok, tsym, kind, ltp)
 
         if tok in spot_tokens:
+            print("[DEBUG] Spot tick received, calling update_option_band")
             update_option_band(ws, "NIFTY", ltp)
 
 def on_connect(ws, resp):
