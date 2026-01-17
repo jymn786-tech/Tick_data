@@ -133,46 +133,70 @@ def _parse_expiry_from_tradingsymbol(tsym):
     return date(year, mon, day)
 
 def build_nfo_index_with_expiry():
-    instruments = kite.instruments("NFO")
-    index, ts_map, token_meta = {}, {}, {}
+    """
+    Build NFO option index from instruments.csv
+    This mirrors local behavior and avoids API inconsistencies.
+    """
 
-    for inst in instruments:
-        ts = (inst.get("tradingsymbol") or "").upper()
-        ts_map[ts] = inst
+    import pandas as pd
 
-        strike = inst.get("strike")
-        strike = int(strike) if strike else None
+    df = pd.read_csv("instruments.csv")
 
-        opt_type = (inst.get("option_type") or "").upper()
-        expiry = inst.get("expiry")
-        if expiry:
-            if hasattr(expiry, "date"):
-                expiry = expiry.date()
-            elif isinstance(expiry, date):
-                expiry = expiry
-            else:
-                try:
-                    expiry = datetime.strptime(str(expiry), "%Y-%m-%d").date()
-                except Exception:
-                    expiry = _parse_expiry_from_tradingsymbol(ts)
-        else:
-            expiry = _parse_expiry_from_tradingsymbol(ts)
+    # ---- Filter NFO NIFTY options only ----
+    df = df[
+        (df["exchange"] == "NFO") &
+        (df["name"].str.upper().str.contains("NIFTY")) &
+        (df["instrument_type"].isin(["CE", "PE"]))
+    ].copy()
 
-        underlying = (inst.get("name") or "").upper()
+    index = {}
+    ts_map = {}
+    token_meta = {}
 
-        if not (underlying and strike and opt_type and expiry):
+    for _, row in df.iterrows():
+        try:
+            tradingsymbol = str(row["tradingsymbol"]).upper()
+            instrument_token = int(row["instrument_token"])
+
+            # option type
+            opt_type = str(row["instrument_type"]).upper()
+            if opt_type not in ("CE", "PE"):
+                continue
+
+            # strike
+            strike = row.get("strike")
+            if pd.isna(strike):
+                continue
+            strike = int(float(strike))
+
+            # expiry
+            expiry_raw = row.get("expiry")
+            if pd.isna(expiry_raw):
+                continue
+            expiry = pd.to_datetime(expiry_raw).date()
+
+            # underlying (normalize)
+            underlying = "NIFTY"
+
+            key = (underlying, strike, opt_type, expiry)
+
+            index[key] = {
+                "instrument_token": instrument_token,
+                "tradingsymbol": tradingsymbol
+            }
+
+            ts_map[tradingsymbol] = index[key]
+
+            token_meta[instrument_token] = {
+                "expiry": expiry,
+                "strike": strike,
+                "opt_type": opt_type,
+                "tradingsymbol": tradingsymbol
+            }
+
+        except Exception as e:
+            # Skip malformed rows safely
             continue
-
-        key = (underlying, strike, opt_type, expiry)
-        index[key] = inst
-
-        tok = int(inst["instrument_token"])
-        token_meta[tok] = {
-            "expiry": expiry,
-            "strike": strike,
-            "opt_type": opt_type,
-            "tradingsymbol": ts
-        }
 
     return index, ts_map, token_meta
 
