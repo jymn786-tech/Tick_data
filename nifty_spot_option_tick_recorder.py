@@ -153,8 +153,8 @@ def build_nfo_index_with_expiry():
             else:
                 try:
                     expiry = datetime.strptime(str(expiry), "%Y-%m-%d").date()
-            except Exception:
-                expiry = _parse_expiry_from_tradingsymbol(ts)
+                except Exception:
+                    expiry = _parse_expiry_from_tradingsymbol(ts)
         else:
             expiry = _parse_expiry_from_tradingsymbol(ts)
 
